@@ -12,11 +12,11 @@ class ProductSerializers(serializers.ModelSerializer):
       'my_discount'
     ]
   def get_my_discount(self,obj):
-      # print(obj.id)
-      # print(obj.title)
-      return obj.get_discount()
-  
-
+    if not hasattr(obj,'id'):
+      return None
+    if not isinstance(obj,Product):
+      return None
+    return obj.get_discount()
 #explaination
 """
 my_discount = serializers.SerializerMethodField()
