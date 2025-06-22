@@ -1,15 +1,18 @@
-from rest_framework import generics
+from rest_framework import generics,mixins, permissions, authentication
 from .models import Product
 from .serializers import ProductSerializers
 from rest_framework.decorators import api_view
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
+from .permissions import IsStaffEditorPermission
 
-
-
+#list and create api
 class ProductListCreateAPIView(generics.ListCreateAPIView):
   queryset = Product.objects.all()
   serializer_class = ProductSerializers
+  authentication_classes = [authentication.SessionAuthentication]
+  permission_classes = [permissions.IsAdminUser,IsStaffEditorPermission]
+  
 
   def perform_create(self,serializer):
     print(serializer.validated_data)
@@ -21,7 +24,7 @@ class ProductListCreateAPIView(generics.ListCreateAPIView):
   
 product_list_create_view = ProductListCreateAPIView.as_view()
 
-
+#Detail api view
 class ProductDetailAPIView(generics.RetrieveAPIView):
   queryset = Product.objects.all()
   serializer_class = ProductSerializers
@@ -33,9 +36,68 @@ product_detail_view = ProductDetailAPIView.as_view()
 #   serializer_class = ProductSerializers
 # product_list_view = ProductListAPIView.as_view()
 
+class ProductUpdateAPIView(generics.UpdateAPIView):
+  queryset = Product.objects.all()
+  serializer_class = ProductSerializers
+  lookup_field = 'pk'
+
+  def perform_update(self, serializer):
+    instance = serializer.save()
+    if not instance.content:
+      instance.content = instance.title
+product_update_view = ProductUpdateAPIView.as_view()
+
+
+class ProductDestroyAPIView(generics.DestroyAPIView):
+  queryset = Product.objects.all()
+  serializer_class = ProductSerializers
+  lookup_field = 'pk'
+
+  def perform_destroy(self, instance):
+    super().perform_destroy(instance)
+product_destroy_view = ProductDestroyAPIView.as_view()
+
+class CreateAPIView(mixins.CreateModelMixin,generics.GenericAPIView):
+  pass
+########
+#mixins
+
+class ProductMixinView(generics.GenericAPIView,
+                       mixins.CreateModelMixin,
+                       mixins.RetrieveModelMixin,
+                       mixins.ListModelMixin):
+  queryset = Product.objects.all()
+  serializer_class = ProductSerializers
+  lookup_field = 'pk'
+  def get(self,request,*args,**kwargs):
+    print(args,kwargs)
+    pk = kwargs.get('pk')
+    if pk is not None:
+      return self.retrieve(request,*args,**kwargs)
+    return self.list(request,*args,**kwargs)
+  
+
+  def post(self,request,*args,**kwargs):
+    return self.create(request, *args,**kwargs)
+  
+  def perform_create(self,serializer):
+    print(serializer.validated_data)
+    title = serializer.validated_data.get('title')
+    content = serializer.validated_data.get('content')
+    if content is None:
+      content = "This is a single view doing cool stuff"
+    serializer.save(content = content)
+  
+
+product_mixin_view = ProductMixinView.as_view()
+
+"""
+The difference between the class based view and function based view is that in function based view we write condtion where as in class based we write functions
 """
 
-  DRF sees you're accessing /products/1/
+
+"""
+DRF sees you're accessing /products/1/
 
 RetrieveAPIView looks for Product.objects.get(pk=1)
 
